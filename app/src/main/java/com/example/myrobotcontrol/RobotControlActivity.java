@@ -1,7 +1,5 @@
 package com.example.myrobotcontrol;
 
-import static java.lang.Math.abs;
-
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.annotation.SuppressLint;
@@ -11,9 +9,6 @@ import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.view.MotionEvent;
 import android.widget.Button;
-
-import net.wimpi.modbus.procimg.Register;
-import net.wimpi.modbus.procimg.SimpleRegister;
 
 import org.videolan.libvlc.LibVLC;
 import org.videolan.libvlc.Media;
@@ -40,7 +35,6 @@ public class RobotControlActivity extends AppCompatActivity {
     private Button stopButton;
 
     private LibVLC libVLC;
-    private VideoView videoView;
     private RobotPosition robotPosition;
 
     private boolean isStop = false;
@@ -125,9 +119,7 @@ public class RobotControlActivity extends AppCompatActivity {
             return false;
         });
 
-        stopButton.setOnClickListener(view -> {
-            isStop = true;
-        });
+        stopButton.setOnClickListener(view -> isStop = true);
 
         stopButton.setOnTouchListener((view, motionEvent) -> {
             if (motionEvent.getAction() == MotionEvent.ACTION_UP) {
@@ -137,7 +129,7 @@ public class RobotControlActivity extends AppCompatActivity {
             return false;
         });
 
-        videoView = findViewById(R.id.videoView);
+        VideoView videoView = findViewById(R.id.videoView);
         String videoSource = "rtsp://" + robotIP + ":8554/unicast";
         libVLC = new LibVLC(this);
         Media media = new Media(libVLC, Uri.parse(videoSource));
@@ -178,34 +170,27 @@ public class RobotControlActivity extends AppCompatActivity {
                 public void run() {
                     try {
                         robot.readRobotStatus();
-                        robot.writeToRobot(
-                                convertDataFromView(
-                                        leftJoystick.getJoystickX(),
-                                        leftJoystick.getJoystickY(),
-                                        rightJoystick.getJoystickX(),
-                                        rightJoystick.getJoystickY(),
-                                        moveOpenClose,
-                                        moveUpDown
-                                )
+                        robot.convertDataFromView(
+                                leftJoystick.getJoystickX(),
+                                leftJoystick.getJoystickY(),
+                                rightJoystick.getJoystickX(),
+                                rightJoystick.getJoystickY(),
+                                moveOpenClose,
+                                moveUpDown
                         );
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
-
                     int angleToFirstListIndex =
                             robot.getAngleTOFSensors() * robotPosition.getPointsCount() / 360;
                     int angleToSecondListIndex =
                             (180 - robot.getAngleTOFSensors()) * robotPosition.getPointsCount() / 360;
-                    int distanceFromFirstSensor = transformRange(
-                            robot.getFirstTOFSensorValueInMM(),
-                            0, 2000,
-                            50, 150);
-                    int distanceFromSecondSensor = robot.getSecondTOFSensorValueInMM();
+                    int distanceFromFirstSensor = robot.getFirstTOFSensorValue();
+                    int distanceFromSecondSensor = robot.getSecondTOFSensorValue();
                     distances.remove(angleToFirstListIndex);
                     distances.add(angleToFirstListIndex, distanceFromFirstSensor);
                     distances.remove(angleToSecondListIndex);
                     distances.add(angleToFirstListIndex, distanceFromSecondSensor);
-
                     robotPosition.setDistances(distances);
                     robotPosition.setRotationDegree(rotationDegree);
                 }
@@ -213,58 +198,6 @@ public class RobotControlActivity extends AppCompatActivity {
             timer.schedule(task, delay, period);
         }
     }
-
-    private int transformRange(
-            int value,
-            int oldMinVal, int oldMaxValue,
-            int newMinVal, int newMaxVal
-    ) {
-        return newMinVal +
-                ((newMaxVal - newMinVal) * ((value - oldMinVal) /
-                        (oldMaxValue - oldMinVal)));
-    }
-
-    private Register[] convertDataFromView(
-            int x_leftStick, int y_leftStick,
-            int x_rightStick, int y_rightStick,
-            int moveOpenClose, int moveUpDown
-    ) {
-        int leftDiagonalSpeedValue = y_leftStick + x_leftStick + y_rightStick + x_rightStick;
-        int rightDiagonalSpeedValue = y_leftStick - x_leftStick + y_rightStick - x_rightStick;
-        Register leftDiagonalDirection;
-        if (leftDiagonalSpeedValue < 0) leftDiagonalDirection = new SimpleRegister(1);
-        else if (leftDiagonalSpeedValue == 0) leftDiagonalDirection = new SimpleRegister(0);
-        else leftDiagonalDirection = new SimpleRegister(2);
-        Register rightDiagonalDirection;
-        if (rightDiagonalSpeedValue < 0) rightDiagonalDirection = new SimpleRegister(1);
-        else if (rightDiagonalSpeedValue == 0) rightDiagonalDirection = new SimpleRegister(0);
-        else rightDiagonalDirection = new SimpleRegister(2);
-        Register leftDiagonalEnginesSpeed = new SimpleRegister(
-                transformRange(
-                        abs(leftDiagonalSpeedValue),
-                        0, 1020,
-                        0, 100
-                )
-
-        );
-        Register rightDiagonalEnginesSpeed = new SimpleRegister(
-                transformRange(
-                        abs(rightDiagonalSpeedValue),
-                        0, 1020,
-                        0, 100
-                )
-
-        );
-        return new Register[]{
-                leftDiagonalDirection,
-                rightDiagonalDirection,
-                leftDiagonalEnginesSpeed,
-                rightDiagonalEnginesSpeed,
-                new SimpleRegister(moveUpDown),
-                new SimpleRegister(moveOpenClose)
-        };
-    }
-
 
     @Override
     protected void onPause() {
