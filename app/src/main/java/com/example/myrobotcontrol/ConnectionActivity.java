@@ -4,14 +4,13 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
 import java.util.regex.Pattern;
 
-public class MainActivity extends AppCompatActivity {
+public class ConnectionActivity extends AppCompatActivity {
 
     private EditText ipEntry;
     private Button connectButton;
@@ -19,7 +18,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.connection_activity);
         ipEntry = findViewById(R.id.ip_entry);
         connectButton = findViewById(R.id.connection_button);
 
@@ -30,8 +29,6 @@ public class MainActivity extends AppCompatActivity {
                             "^((?:25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]\\d|\\d)\\.)" +
                                     "{3}(?:25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]\\d|\\d)$"
                     );
-//                            "^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.)" +
-//                                    "{3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
             if (ipValidator.matcher(ipAddress).matches()) {
                 goToRobotControlActivity(ipAddress);
             }

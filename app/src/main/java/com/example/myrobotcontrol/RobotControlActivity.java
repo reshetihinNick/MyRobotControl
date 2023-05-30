@@ -204,7 +204,7 @@ public class RobotControlActivity extends AppCompatActivity {
         super.onPause();
         libVLC.release();
         robot.disconnect();
-        Intent backToMainActivity = new Intent(this, MainActivity.class);
+        Intent backToMainActivity = new Intent(this, ConnectionActivity.class);
         startActivity(backToMainActivity);
     }
 
