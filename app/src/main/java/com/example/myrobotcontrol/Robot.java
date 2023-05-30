@@ -69,7 +69,7 @@ public class Robot {
         this.isGripperClosed = response.getRegisterValue(isGripperClosedRegister);
     }
 
-    public void setMoveFromJoysticks(Register[] dataFromJoysticks) throws Exception {
+    public void writeToRobot(Register[] dataFromJoysticks) throws Exception {
         int startAddress = 8;
         WriteMultipleRegistersRequest writingRequest =
                 new WriteMultipleRegistersRequest(startAddress, dataFromJoysticks);

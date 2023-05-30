@@ -8,11 +8,21 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.widget.VideoView;
+import android.util.DisplayMetrics;
+import android.view.MotionEvent;
+import android.widget.Button;
 
 import net.wimpi.modbus.procimg.Register;
 import net.wimpi.modbus.procimg.SimpleRegister;
 
+import org.videolan.libvlc.LibVLC;
+import org.videolan.libvlc.Media;
+import org.videolan.libvlc.MediaPlayer;
+import org.videolan.libvlc.media.VideoView;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -20,9 +30,24 @@ import java.util.TimerTask;
 public class RobotControlActivity extends AppCompatActivity {
 
     private Robot robot;
+
     private Joystick leftJoystick;
     private Joystick rightJoystick;
+    private Button gripperOpenButton;
+    private Button gripperCloseButton;
+    private Button gripperUpButton;
+    private Button gripperDownButton;
+    private Button stopButton;
 
+    private LibVLC libVLC;
+    private VideoView videoView;
+    private RobotPosition robotPosition;
+
+    private boolean isStop = false;
+    private int moveUpDown;
+    private int moveOpenClose;
+
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -37,14 +62,97 @@ public class RobotControlActivity extends AppCompatActivity {
             throw new RuntimeException(e);
         }
 
-        String videoSource = "rtsp://" + robotIP + ":8554/unicast";
-        VideoView robotCamera = findViewById(R.id.videoView);
-        robotCamera.setVideoURI(Uri.parse(videoSource));
-        robotCamera.requestFocus();
-        robotCamera.start();
-
         leftJoystick = findViewById(R.id.leftJoystick);
         rightJoystick = findViewById(R.id.rightJoystick);
+
+        gripperOpenButton = findViewById(R.id.gripperOpenButton);
+        gripperCloseButton = findViewById(R.id.gripperCloseButton);
+        gripperUpButton = findViewById(R.id.gripperUpButton);
+        gripperDownButton = findViewById(R.id.gripperDownButton);
+        stopButton = findViewById(R.id.stopButton);
+
+        robotPosition = findViewById(R.id.robotPosition);
+
+        gripperOpenButton.setOnClickListener(view -> {
+            if (!isStop) moveOpenClose = 1;
+            else moveOpenClose = 0;
+        });
+
+        gripperOpenButton.setOnTouchListener((view, motionEvent) -> {
+            if (motionEvent.getAction() == MotionEvent.ACTION_UP) {
+                moveOpenClose = 0;
+                return true;
+            }
+            return false;
+        });
+
+        gripperCloseButton.setOnClickListener(view -> {
+            if (!isStop) moveOpenClose = 2;
+            else moveOpenClose = 0;
+        });
+
+        gripperCloseButton.setOnTouchListener((view, motionEvent) -> {
+            if (motionEvent.getAction() == MotionEvent.ACTION_UP) {
+                moveOpenClose = 0;
+                return true;
+            }
+            return false;
+        });
+
+        gripperUpButton.setOnClickListener(view -> {
+            if (!isStop) moveUpDown = 1;
+            else moveUpDown = 0;
+        });
+
+        gripperUpButton.setOnTouchListener((view, motionEvent) -> {
+            if (motionEvent.getAction() == MotionEvent.ACTION_UP) {
+                moveUpDown = 0;
+                return true;
+            }
+            return false;
+        });
+
+        gripperDownButton.setOnClickListener(view -> {
+            if (!isStop) moveUpDown = 2;
+            else moveUpDown = 0;
+        });
+
+        gripperDownButton.setOnTouchListener((view, motionEvent) -> {
+            if (motionEvent.getAction() == MotionEvent.ACTION_UP) {
+                moveUpDown = 0;
+                return true;
+            }
+            return false;
+        });
+
+        stopButton.setOnClickListener(view -> {
+            isStop = true;
+        });
+
+        stopButton.setOnTouchListener((view, motionEvent) -> {
+            if (motionEvent.getAction() == MotionEvent.ACTION_UP) {
+                isStop = false;
+                return true;
+            }
+            return false;
+        });
+
+        videoView = findViewById(R.id.videoView);
+        String videoSource = "rtsp://" + robotIP + ":8554/unicast";
+        libVLC = new LibVLC(this);
+        Media media = new Media(libVLC, Uri.parse(videoSource));
+        media.addOption(":fullscreen");
+        MediaPlayer mediaPlayer = new MediaPlayer(libVLC);
+        mediaPlayer.setMedia(media);
+        mediaPlayer.getVLCVout()
+                .setVideoSurface(videoView.getHolder().getSurface(), videoView.getHolder());
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+        int windowHeight = displayMetrics.heightPixels;
+        int windowWidth = displayMetrics.widthPixels;
+        mediaPlayer.getVLCVout().setWindowSize(windowWidth, windowHeight);
+        mediaPlayer.getVLCVout().attachViews();
+        mediaPlayer.play();
     }
 
     @Override
@@ -61,41 +169,65 @@ public class RobotControlActivity extends AppCompatActivity {
             Timer timer = new Timer();
             int delay = 100;
             int period = 100;
+
+            List<Integer> distances =
+                    new ArrayList<>(Collections.nCopies(robotPosition.getPointsCount(), 150));
+            int rotationDegree = robot.getRotationRelativeToNorth();
+
             TimerTask task = new TimerTask() {
-                @SuppressLint("SetTextI18n")
                 public void run() {
                     try {
                         robot.readRobotStatus();
-                        robot.setMoveFromJoysticks(
-                                convertDataFromJoysticks(
+                        robot.writeToRobot(
+                                convertDataFromView(
                                         leftJoystick.getJoystickX(),
                                         leftJoystick.getJoystickY(),
                                         rightJoystick.getJoystickX(),
-                                        rightJoystick.getJoystickY()
+                                        rightJoystick.getJoystickY(),
+                                        moveOpenClose,
+                                        moveUpDown
                                 )
                         );
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
+
+                    int angleToFirstListIndex =
+                            robot.getAngleTOFSensors() * robotPosition.getPointsCount() / 360;
+                    int angleToSecondListIndex =
+                            (180 - robot.getAngleTOFSensors()) * robotPosition.getPointsCount() / 360;
+                    int distanceFromFirstSensor = transformRange(
+                            robot.getFirstTOFSensorValueInMM(),
+                            0, 2000,
+                            50, 150);
+                    int distanceFromSecondSensor = robot.getSecondTOFSensorValueInMM();
+                    distances.remove(angleToFirstListIndex);
+                    distances.add(angleToFirstListIndex, distanceFromFirstSensor);
+                    distances.remove(angleToSecondListIndex);
+                    distances.add(angleToFirstListIndex, distanceFromSecondSensor);
+
+                    robotPosition.setDistances(distances);
+                    robotPosition.setRotationDegree(rotationDegree);
                 }
             };
             timer.schedule(task, delay, period);
         }
     }
 
-    private double map(
-            double value,
-            double firstMinVal, double firstMaxValue,
-            double secondMinVal, double secondMaxVal
+    private int transformRange(
+            int value,
+            int oldMinVal, int oldMaxValue,
+            int newMinVal, int newMaxVal
     ) {
-        return secondMinVal +
-                ((secondMaxVal - secondMinVal) *
-                        ((value - firstMinVal) / (firstMaxValue - firstMinVal)));
+        return newMinVal +
+                ((newMaxVal - newMinVal) * ((value - oldMinVal) /
+                        (oldMaxValue - oldMinVal)));
     }
 
-    private Register[] convertDataFromJoysticks(
+    private Register[] convertDataFromView(
             int x_leftStick, int y_leftStick,
-            int x_rightStick, int y_rightStick
+            int x_rightStick, int y_rightStick,
+            int moveOpenClose, int moveUpDown
     ) {
         int leftDiagonalSpeedValue = y_leftStick + x_leftStick + y_rightStick + x_rightStick;
         int rightDiagonalSpeedValue = y_leftStick - x_leftStick + y_rightStick - x_rightStick;
@@ -108,18 +240,18 @@ public class RobotControlActivity extends AppCompatActivity {
         else if (rightDiagonalSpeedValue == 0) rightDiagonalDirection = new SimpleRegister(0);
         else rightDiagonalDirection = new SimpleRegister(2);
         Register leftDiagonalEnginesSpeed = new SimpleRegister(
-                (int) map(
+                transformRange(
                         abs(leftDiagonalSpeedValue),
-                        0.0, 1020.0,
-                        0.0, 100.0
+                        0, 1020,
+                        0, 100
                 )
 
         );
         Register rightDiagonalEnginesSpeed = new SimpleRegister(
-                (int) map(
+                transformRange(
                         abs(rightDiagonalSpeedValue),
-                        0.0, 1020.0,
-                        0.0, 100.0
+                        0, 1020,
+                        0, 100
                 )
 
         );
@@ -127,7 +259,9 @@ public class RobotControlActivity extends AppCompatActivity {
                 leftDiagonalDirection,
                 rightDiagonalDirection,
                 leftDiagonalEnginesSpeed,
-                rightDiagonalEnginesSpeed
+                rightDiagonalEnginesSpeed,
+                new SimpleRegister(moveUpDown),
+                new SimpleRegister(moveOpenClose)
         };
     }
 
@@ -135,6 +269,7 @@ public class RobotControlActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        libVLC.release();
         robot.disconnect();
         Intent backToMainActivity = new Intent(this, MainActivity.class);
         startActivity(backToMainActivity);
@@ -143,6 +278,7 @@ public class RobotControlActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        libVLC.release();
         robot.disconnect();
     }
 }

@@ -3,8 +3,9 @@
     <string name="connect_button">Подключиться</string>
     <string name="input_server_address">Введите адрес устройства</string>
     <string name="ip_entry">IP</string>
-    <string name="gripper_up">Поднять захват</string>
-    <string name="gripper_down">Опустить захват</string>
-    <string name="gripper_close">Захватить</string>
-    <string name="gripper_open">Отпустить</string>
+    <string name="gripper_up">/\\</string>
+    <string name="gripper_down">\\/</string>
+    <string name="gripper_close">»«</string>
+    <string name="gripper_open">«»</string>
+    <string name="stop_button">stop</string>
 </resources>

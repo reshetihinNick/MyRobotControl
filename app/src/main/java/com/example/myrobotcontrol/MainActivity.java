@@ -23,20 +23,20 @@ public class MainActivity extends AppCompatActivity {
         ipEntry = findViewById(R.id.ip_entry);
         connectButton = findViewById(R.id.connection_button);
 
-        connectButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                String ipAddress = ipEntry.getText().toString();
-                Pattern ipValidator =
-                        Pattern.compile(
-                                "^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.)" +
-                                        "{3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
-                if (ipValidator.matcher(ipAddress).matches()) {
-                    goToRobotControlActivity(ipAddress);
-                }
-                else {
-                    incorrectAddressMessage();
-                }
+        connectButton.setOnClickListener(view -> {
+            String ipAddress = ipEntry.getText().toString();
+            Pattern ipValidator =
+                    Pattern.compile(
+                            "^((?:25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]\\d|\\d)\\.)" +
+                                    "{3}(?:25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]\\d|\\d)$"
+                    );
+//                            "^(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.)" +
+//                                    "{3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
+            if (ipValidator.matcher(ipAddress).matches()) {
+                goToRobotControlActivity(ipAddress);
+            }
+            else {
+                incorrectAddressMessage();
             }
         });
     }
