@@ -79,7 +79,7 @@ public class Robot {
         this.isGripperClosed = response.getRegisterValue(isGripperClosedRegister);
     }
 
-    private int transformRange(
+    public int transformRange(
             int value,
             int oldMinVal, int oldMaxValue,
             int newMinVal, int newMaxVal
