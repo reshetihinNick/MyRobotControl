@@ -16,7 +16,6 @@ import java.util.Collections;
 import java.util.List;
 
 public class RobotPosition extends View {
-    private final int pointsRadius = 3;
     private final int pointsCount = 72;
 
     private List<Integer> distances = new ArrayList<>(Collections.nCopies(pointsCount, 150));
@@ -85,18 +84,15 @@ public class RobotPosition extends View {
                 centerY - rotatedCompass.getHeight() / 2f,
                null);
         for (int pointIndex = 0; pointIndex < pointsCount; pointIndex++) {
-            double angle = Math.toRadians((360f / pointsCount) * pointIndex);
-            double distance = getCurrentPointDistance(pointIndex);
+            double angle = Math.toRadians((double) (360 / pointsCount) * pointIndex);
+            double distance = distances.get(pointIndex);
 
             float x = (float) (centerX + distance * Math.cos(angle));
             float y = (float) (centerY + distance * Math.sin(angle));
 
+            int pointsRadius = 3;
             canvas.drawCircle(x, y, pointsRadius, pointPaint);
         }
-    }
-
-    private int getCurrentPointDistance(int index) {
-        return distances.get(index);
     }
 
     public void setDistances(List<Integer> distances) {
